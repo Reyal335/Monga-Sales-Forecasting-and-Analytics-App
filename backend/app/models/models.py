@@ -1,12 +1,16 @@
+import os
+import sys
 from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import ForeignKey, Numeric, SmallInteger, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
 
-class Base(DeclarativeBase):
-    pass
+sys.path.append(parent_dir)
+from ..database.database import Base
 
 
 class Store(Base):
