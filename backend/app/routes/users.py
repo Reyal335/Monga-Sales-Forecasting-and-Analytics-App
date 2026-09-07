@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-router = APIRouter()
+router = APIRouter(prefix="api/v1/users", tags=["users"])
 
-@router.get("/users", tags=["users"])
+@router.get("/", tags=["users"])
 async def read_users():
     return [{"message": "Hi"}]
