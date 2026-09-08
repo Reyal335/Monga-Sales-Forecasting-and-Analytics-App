@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class MenuPerformanceBase(BaseModel):
-    item_id: int
+    item_id: str
     item_name: str
     category: str
     unit_price: Decimal

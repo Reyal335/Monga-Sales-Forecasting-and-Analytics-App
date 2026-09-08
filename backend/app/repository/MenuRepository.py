@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
-from models import BillOfMaterials, Ingredient, MenuItem, Order, OrderItem
+from ..models.models import BillOfMaterials, Ingredient, MenuItem, Order, OrderItem
 from sqlalchemy import Select, and_, desc, func, select
 from sqlalchemy.orm import Session
 

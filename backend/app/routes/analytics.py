@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
-from sqlalchemy.orm import Session, Anno
-from typing import List, Optional, Annotated, Dict
+from sqlalchemy.orm import Session
+from typing import List, Optional, Annotated, Dict, Any
 from decimal import Decimal
 from datetime import datetime
 
@@ -9,18 +9,19 @@ from ..database.database import get_db
 from ..services.menu_analytics import MenuPerformanceService
 from ..schemas.menu_analytics import MenuPerformanceBase, PerformanceFilters, PerformanceSummary
 
-router = APIRouter(prefix="api/v1/analytics", tags=["analytics"])
+router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
 db_session = Annotated[Session, Depends(get_db)]
 
-@router.get("/", tags=["analytics"], response_model=Dict[str, any])
+@router.get("/", tags=["analytics"], response_model=Dict[str, Any])
 async def get_menu_performance(
     filters: Annotated[PerformanceFilters, Query()],
     db: db_session
-):
+) -> dict:
     try:
         service = MenuPerformanceService(db)
-        results, total_count = service.get_performance(filters)
+        results = service.get_performance(filters)
+        return {'results': results}
     except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -7,7 +7,7 @@ from ..schemas.menu_analytics import MenuPerformanceResponse, PerformanceFilters
 class MenuPerformanceService:
     def __init__(self, db: Session):
         self.db = db
-        self.repository = MenuPerformanceRepository
+        self.repository = MenuPerformanceRepository(db)
 
     def get_performance(
         self,
@@ -33,5 +33,5 @@ class MenuPerformanceService:
         }
 
     def get_performance_summary(self, days_back = 365) -> PerformanceSummary:
-        summary = self.get_performance_summary()
+        summary = self.get_performance_summary(days_back)
         return PerformanceSummary(**summary)

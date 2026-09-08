@@ -1,13 +1,26 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from app.routes import chat
 from app.routes import users
+from app.routes import analytics
+from app.database.database import get_db
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from typing import Annotated
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 class HealthResponse(BaseModel):
     status: str
 
+class DatabaseHealth(BaseModel):
+    status: str
 
 class Prediction(BaseModel):
     date: str
@@ -23,16 +36,44 @@ class DashboardSummary(BaseModel):
     model_type: str
     recent_predictions: list[Prediction]
 
+db_session = Annotated[Session, Depends(get_db)]
 
 app = FastAPI(title="Demand Forecasting API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 app.include_router(chat.router)
 app.include_router(users.router)
+app.include_router(analytics.router)
 
 @app.get("/api/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
     return HealthResponse(status="online")
+
+
+@app.get("/api/database-health", response_model=HealthResponse)
+def database_check(db: db_session) -> HealthResponse:
+    if not db.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "msg": "Database session is not active.",
+                "db_url": DATABASE_URL
+            },
+        )       
+
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "msg": f"Database operational error {str(e)}",
+                "db_url": DATABASE_URL
+            }
+        )
+    
+    return DatabaseHealth(status='online')
 
 
 @app.get("/api/dashboard/summary", response_model=DashboardSummary)
