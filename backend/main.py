@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from app.schemas.users import User
+
 from pydantic import BaseModel
 from app.routes import chat
 from app.routes import users
@@ -39,11 +41,27 @@ class DashboardSummary(BaseModel):
 db_session = Annotated[Session, Depends(get_db)]
 
 app = FastAPI(title="Demand Forecasting API", version="0.1.0")
+
+
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 app.include_router(chat.router)
 app.include_router(users.router)
 app.include_router(analytics.router)
+
+def fake_decode_token(token):
+    return User(
+        username=token + "fakedecoded", email="john@example.com", full_name="John Doe"
+    )
+
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+    user = fake_decode_token(token)
+    return user
+
+
+@app.get("/users/me")
+async def read_items(current_user: Annotated[User, Depends(get_current_user)]):
+    return current_user
 
 @app.get("/api/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
