@@ -32,6 +32,7 @@ class MenuPerformanceService:
             'filters': filters.model_dump()
         }
 
-    def get_performance_summary(self, days_back = 365) -> PerformanceSummary:
-        summary = self.get_performance_summary(days_back)
-        return PerformanceSummary(**summary)
+    def get_performance_summary(self, days_back = 365) -> Dict[str, Any]:
+        summary = self.repository.get_performance_summary(days_back)
+        summary_model = PerformanceSummary(**summary)
+        return summary_model.model_dump()

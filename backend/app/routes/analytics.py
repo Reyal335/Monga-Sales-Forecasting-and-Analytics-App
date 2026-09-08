@@ -34,3 +34,23 @@ async def get_menu_performance(
             detail="An error occurred while fetching menu analytics.",
         ) from err
 
+@router.get("/summary", tags=["analytics"], response_model=Dict[str, Any])
+async def get_menu_summary(
+    db: db_session,
+    days_back: int = Query(default=365, ge=1),
+) -> dict:
+    try:
+        service = MenuPerformanceService(db)
+        results = service.get_performance_summary(days_back)
+        return { "results": results }
+
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err)
+        )
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occured while fetching menu summary"
+        )
