@@ -2,9 +2,11 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..models.models import BillOfMaterials, Ingredient, MenuItem, Order, OrderItem
 from sqlalchemy import Select, and_, desc, func, select
+from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
+
+from ..models.models import BillOfMaterials, Ingredient, MenuItem, Order, OrderItem
 
 
 class MenuPerformanceRepository:
@@ -18,91 +20,98 @@ class MenuPerformanceRepository:
         min_profit: Optional[Decimal] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> Tuple[List[Any], int]:
+    ) -> Tuple[List[Row], int]:
         """
-        Get menu item performance metrics with optional filters.
+        Get menu item performance metrics using modern SQLAlchemy 2.0+ CTEs.
         Returns tuple of (results, total_count)
         """
         now = datetime.now()
         cutoff_date = now - timedelta(days=days_back)
 
-        # 1. Subquery for recipe costs and contribution margins per item
-        item_data = (
+        # 1. CTE for recipe costs & contribution margin per menu item
+        recipe_costs_cte = (
             select(
                 MenuItem.item_id,
                 MenuItem.item_name,
                 MenuItem.category,
                 MenuItem.unit_price,
-                func.sum(BillOfMaterials.quantity_required * Ingredient.cost_per_unit).label(
-                    "total_recipe_cost"
-                ),
+                func.coalesce(
+                    func.sum(BillOfMaterials.quantity_required * Ingredient.cost_per_unit),
+                    0,
+                ).label("total_recipe_cost"),
                 (
                     MenuItem.unit_price
-                    - func.sum(BillOfMaterials.quantity_required * Ingredient.cost_per_unit)
+                    - func.coalesce(
+                        func.sum(BillOfMaterials.quantity_required * Ingredient.cost_per_unit),
+                        0,
+                    )
                 ).label("contribution_margin"),
             )
-            .join(BillOfMaterials, BillOfMaterials.item_id == MenuItem.item_id)
-            .join(Ingredient, Ingredient.ingredient_id == BillOfMaterials.ingredient_id)
+            .outerjoin(BillOfMaterials, BillOfMaterials.item_id == MenuItem.item_id)
+            .outerjoin(Ingredient, Ingredient.ingredient_id == BillOfMaterials.ingredient_id)
             .group_by(
                 MenuItem.item_id,
                 MenuItem.item_name,
                 MenuItem.category,
                 MenuItem.unit_price,
             )
-            .subquery("item_data")
+            .cte("recipe_costs")
         )
 
-        # 2. Subquery for item order counts within the time window
-        item_count = (
+        # 2. CTE for total quantity sold within the time window
+        item_sales_cte = (
             select(
                 OrderItem.item_id,
-                func.count(OrderItem.item_id).label("item_count"),
+                func.coalesce(func.sum(OrderItem.quantity), 0).label("total_sold"),
             )
             .join(Order, Order.order_id == OrderItem.order_id)
             .where(
                 and_(
                     Order.order_timestamp > cutoff_date,
-                    Order.order_timestamp < now,
+                    Order.order_timestamp <= now,
                 )
             )
             .group_by(OrderItem.item_id)
-            .subquery("item_count")
+            .cte("item_sales")
         )
 
-        # 3. Base statement combining subqueries
+        # 3. Base Query joining CTEs
         stmt: Select = (
             select(
-                item_data.c.item_id,
-                item_data.c.item_name,
-                item_data.c.category,
-                item_data.c.unit_price,
-                item_data.c.total_recipe_cost,
-                item_data.c.contribution_margin,
-                (item_data.c.unit_price * func.coalesce(item_count.c.item_count, 0)).label(
-                    "total_revenue"
-                ),
+                recipe_costs_cte.c.item_id,
+                recipe_costs_cte.c.item_name,
+                recipe_costs_cte.c.category,
+                recipe_costs_cte.c.unit_price,
+                recipe_costs_cte.c.total_recipe_cost,
+                recipe_costs_cte.c.contribution_margin,
+                func.coalesce(item_sales_cte.c.total_sold, 0).label("total_units_sold"),
                 (
-                    item_data.c.contribution_margin * func.coalesce(item_count.c.item_count, 0)
+                    recipe_costs_cte.c.unit_price
+                    * func.coalesce(item_sales_cte.c.total_sold, 0)
+                ).label("total_revenue"),
+                (
+                    recipe_costs_cte.c.contribution_margin
+                    * func.coalesce(item_sales_cte.c.total_sold, 0)
                 ).label("total_profit"),
             )
-            .outerjoin(item_count, item_count.c.item_id == item_data.c.item_id)
+            .outerjoin(item_sales_cte, item_sales_cte.c.item_id == recipe_costs_cte.c.item_id)
         )
 
-        # 4. Apply conditional filters
+        # 4. Conditional Filters
         if category:
-            stmt = stmt.where(item_data.c.category == category)
+            stmt = stmt.where(recipe_costs_cte.c.category == category)
 
         if min_profit is not None:
             stmt = stmt.where(
-                (item_data.c.contribution_margin * func.coalesce(item_count.c.item_count, 0))
+                (recipe_costs_cte.c.contribution_margin * func.coalesce(item_sales_cte.c.total_sold, 0))
                 >= min_profit
             )
 
-        # 5. Get total row count efficiently using a subquery count
+        # 5. Get Total Count using 2.0 subquery pattern
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total_count = self.db.scalar(count_stmt) or 0
 
-        # 6. Apply ordering and pagination, then execute via db.scalars() or db.execute()
+        # 6. Apply Pagination and Fetch Results
         paginated_stmt = stmt.order_by(desc("total_profit")).limit(limit).offset(offset)
         results = list(self.db.execute(paginated_stmt).all())
 

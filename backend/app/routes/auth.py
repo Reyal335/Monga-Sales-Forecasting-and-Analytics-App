@@ -1,26 +1,39 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from ..schemas.users import UserInDB
-from ..dependencies.auth import get_current_active_user, fake_users_db, hash_password
+from ..dependencies.auth import (
+    create_access_token, 
+    authenticate_user, 
+    fake_users_db, 
+    Token
+)
 from typing import Annotated
 
+from datetime import timedelta
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 @router.post("/token")
-async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    user_dict = fake_users_db.get(form_data.username)
-    if not user_dict:
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    if not user:
         raise HTTPException(
-            status_code=400,
-            detail="Incorrect username"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    user = UserInDB(**user_dict)
-    hashed_password = hash_password(form_data.password)
-    if not hashed_password == user.hashed_password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
+    access_token_expire = timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expire
+    )
 
-    return {"access_token": user.username, "token_type": "bearer"}
+    return Token(access_token=access_token, token_type="bearer")
     
