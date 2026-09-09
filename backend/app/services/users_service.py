@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from ..repository.UserRepository import UserRepository
 from ..schemas.users import CreateUser
 
+from ..dependencies.auth import get_password_hash
+
 class UserService:
     def __init__ (self, db: Session):
         self.db = db
@@ -14,7 +16,10 @@ class UserService:
         self,
         user: CreateUser
     ) -> Dict[str, Any]:
-        print("hiii")
+        
+        password = user.password
+        hashed_password = get_password_hash(password)
+        user.password = hashed_password
         result = self.repository.create_user(user)
         result_model = CreateUser(**result)
         return result_model.model_dump()
