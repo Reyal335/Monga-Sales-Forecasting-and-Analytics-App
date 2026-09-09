@@ -1,11 +1,20 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status, HTTPException
+
+from sqlalchemy.orm import Session
+
+from pydantic import ValidationError
 
 from ..dependencies.auth import get_current_active_user
 from ..schemas.users import User, CreateUser
 
+from ..services.users_service import UserService
+from ..database.database import get_db
+
 from typing import Annotated
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
+
+db_session = Annotated[Session, Depends(get_db)]
 
 @router.get("/", tags=["users"])
 async def read_users():
@@ -19,6 +28,35 @@ async def read_users_me(
 
 @router.post("/create", tags=["users"])
 async def create_users(
+    db: db_session,
     user: CreateUser
 ):
-    pass
+    try:
+        
+        service = UserService(db)
+        results = service.create_user(user)
+        
+        return {
+            'results': results
+        }
+    except ValidationError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_list": err.errors()
+            }
+        )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "Value Error"
+            }
+        )
+    except Exception as err: 
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "message": "An error occurred"
+            }
+        )

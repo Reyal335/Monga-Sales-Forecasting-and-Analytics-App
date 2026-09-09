@@ -7,7 +7,7 @@ class UserRepository:
     def __init__ (self, db: Session):
         self.db = db
 
-    def create_user(user: CreateUser):
-        return user
+    def create_user(self, user: CreateUser):
+        return user.model_dump()
 
 

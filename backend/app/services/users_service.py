@@ -14,10 +14,10 @@ class UserService:
         self,
         user: CreateUser
     ) -> Dict[str, Any]:
-        result = self.respository.create_user(user)
-
-
-        # return created
+        print("hiii")
+        result = self.repository.create_user(user)
+        result_model = CreateUser(**result)
+        return result_model.model_dump()
         
         
 
