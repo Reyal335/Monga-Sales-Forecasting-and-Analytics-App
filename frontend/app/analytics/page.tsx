@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { authenticatedFetch } from "@/app/lib/api";
 
 type DecimalValue = number | string;
 
@@ -37,8 +38,6 @@ type PerformanceResults = {
 
 type ApiResponse<T> = { results: T };
 
-const API_BASE_URL = "http://localhost:8000/api/v1/analytics";
-
 function formatNumber(value: DecimalValue) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue.toLocaleString() : String(value);
@@ -66,8 +65,8 @@ export default function AnalyticsPage() {
 
     try {
       const [summaryResponse, performanceResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/summary`, { cache: "no-store", signal }),
-        fetch(`${API_BASE_URL}/`, { cache: "no-store", signal }),
+        authenticatedFetch("/api/v1/analytics/summary", { cache: "no-store", signal }),
+        authenticatedFetch("/api/v1/analytics/", { cache: "no-store", signal }),
       ]);
 
       if (!summaryResponse.ok || !performanceResponse.ok) {

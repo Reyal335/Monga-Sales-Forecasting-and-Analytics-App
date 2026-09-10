@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { authenticatedFetch } from "@/app/lib/api";
 
 type Prediction = { date: string; store_name: string; item_name: string; predicted_qty: number };
 type DashboardSummary = { total_projected_units: number; active_skus: number; top_demand_location: string; model_type: string; recent_predictions: Prediction[] };
-const API_URL = "http://localhost:8000/api/dashboard/summary";
-
 function ChartIcon() {
   return <svg aria-hidden="true" className="h-8 w-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 16l3-4 3 2 5-7" /></svg>;
 }
@@ -18,7 +17,7 @@ export default function Home() {
     const controller = new AbortController();
     async function loadSummary() {
       try {
-        const response = await fetch(API_URL, { signal: controller.signal });
+        const response = await authenticatedFetch("/api/dashboard/summary", { signal: controller.signal });
         if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
         setSummary((await response.json()) as DashboardSummary);
       } catch (err) {

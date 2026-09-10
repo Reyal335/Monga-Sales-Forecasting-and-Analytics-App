@@ -52,7 +52,7 @@ async def login(
         value=refresh_token,
         max_age=int(refresh_token_expire.total_seconds()),
         httponly=True,
-        secure=True,
+        secure = os.getenv("COOKIE_SECURE", "false").lower() == "true",
         samesite="lax"
     )
 
