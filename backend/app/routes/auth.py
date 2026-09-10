@@ -4,6 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from ..schemas.users import UserInDB
 from ..dependencies.auth import (
     create_access_token, 
+    create_refresh_token,
     authenticate_user, 
     fake_users_db, 
     Token
@@ -33,6 +34,9 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> T
     access_token_expire = timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expire
+    )
+    refresh_token = create_access_token(
+        
     )
 
     return Token(access_token=access_token, token_type="bearer")

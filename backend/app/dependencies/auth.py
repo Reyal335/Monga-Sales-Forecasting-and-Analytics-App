@@ -7,7 +7,7 @@ from jwt.exceptions import InvalidTokenError
 
 from pwdlib import PasswordHash
 
-from ..schemas.users import User, UserInDB
+from ..schemas.users import UserResponse, UserInDB
 from typing import Annotated
 
 from datetime import timedelta, datetime, timezone
@@ -24,7 +24,8 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     ussername: str | None = None
 
-SECRET_KEY = os.getenv("SECRET_KEY")
+ACCESS_SECRET_KEY = os.getenv("ACCESS_SECRET_KEY")
+REFRESH_SECRET_KEY = os.getenv("REFRESH_SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 
 
@@ -72,8 +73,19 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, ACCESS_SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else: 
+        expire = datetime.now(timezone.utc) +timedelta(days=14)
+    to_encode.update({'exp': expire})
+    encoded_jwt = jwt.encode(to_encode, REFRESH_SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
     
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
@@ -96,7 +108,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     return user
 
 async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
 ):
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive User")

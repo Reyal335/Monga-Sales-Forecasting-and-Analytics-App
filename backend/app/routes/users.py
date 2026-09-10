@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from pydantic import ValidationError
 
 from ..dependencies.auth import get_current_active_user
-from ..schemas.users import User, CreateUser
+from ..schemas.users import UserResponse, UserCreate
 
 from ..services.users_service import UserService
 from ..database.database import get_db
@@ -26,19 +26,17 @@ async def read_users_me(
 ):
     return current_user
 
-@router.post("/create", tags=["users"])
+@router.post("/create", response_model=UserResponse, status_code=status.HTTP_201_CREATED, tags=["users"])
 async def create_users(
     db: db_session,
-    user: CreateUser
+    user: UserCreate,
 ):
     try:
         
         service = UserService(db)
         results = service.create_user(user)
         
-        return {
-            'results': results
-        }
+        return results
     except ValidationError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
