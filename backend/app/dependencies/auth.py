@@ -1,16 +1,21 @@
 from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from typing import Annotated
+from ..database.database import get_db
 
 import jwt
 from jwt.exceptions import InvalidTokenError
 
 from pwdlib import PasswordHash
 
+from ..models.models import User
 from ..schemas.users import UserResponse, UserInDB
-from typing import Annotated
 
 from datetime import timedelta, datetime, timezone
+
+from ..repository.UserRepository import UserRepository
 
 import os
 from dotenv import load_dotenv
@@ -45,6 +50,7 @@ fake_users_db = {
 password_hash = PasswordHash.recommended()
 
 DUMMY_HASH = password_hash.hash("dummypassword")
+DbSession = Annotated[Session, Depends(get_db)]
 
 def verify_password(plain_password, hashed_password):
     return password_hash.verify(plain_password, hashed_password)
@@ -52,18 +58,17 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return password_hash.hash(password)
 
-def get_user(db, username: str):
-    if username in db:
-        user_dict = db[username]
-        return UserInDB(**user_dict)
-    
-def authenticate_user(fake_db, username: str, password: str):
-    user = get_user(fake_db, username)
+def get_user(email: str, db: Session) -> User | None:
+    repository = UserRepository(db)
+    return repository.get_user(email)
+
+def authenticate_user(email: str, password: str, db: Session) -> User | None:
+    user = get_user(email, db)
     if not user:
         verify_password(password, DUMMY_HASH)
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
+        return None
+    if not verify_password(password, user.password_hash):
+        return None
     return user
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
@@ -95,7 +100,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         heaaders={"WWW-Authenticate": "Bearer"}
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, ACCESS_SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
         if username is None:
             raise credentials_exception

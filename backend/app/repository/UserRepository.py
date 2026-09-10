@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from ..models.models import User
 
@@ -25,5 +26,16 @@ class UserRepository:
         self.db.commit()
         self.db.refresh(new_user)
         return new_user
+
+    def get_user(
+            self,
+            email: str,
+    ) -> User | None:
+        stmt = select(User).where(User.email == email)
+        return self.db.scalars(stmt).first()
+
+
+
+        
 
 
