@@ -34,6 +34,10 @@ class UserRepository:
         stmt = select(User).where(User.email == email)
         return self.db.scalars(stmt).first()
 
+    def get_user_by_id(self, user_id: str) -> User | None:
+        stmt = select(User).where(User.user_id == user_id)
+        return self.db.scalars(stmt).first()
+
 
 
         
