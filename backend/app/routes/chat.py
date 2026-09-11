@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies.auth import get_current_active_user
 from app.schemas.chat import ChatTestRequest, ChatTestResponse
-from app.services.chat_service import LLMUpstreamError, get_llm_test_response
+from ..llm.openrouter_client import LLMUpstreamError, get_llm_test_response
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
