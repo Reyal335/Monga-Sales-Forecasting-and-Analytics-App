@@ -1,15 +1,41 @@
 from fastapi import HTTPException, status
-from profanity_check import predict
+from better_profanity import profanity
+import sqlglot
 
+import re
 
-def input_guardrails(prompt: str):
-    result = predict([prompt])
-    if result == 1:
+def postgres_query(prompt: str) -> str:
+    if not isinstance(prompt, str) or not prompt.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Prompt contains undesirable content"
+            detail="The generated SQL is empty.",
         )
 
+    sql = prompt.strip()
+
+    # Remove ```sql ... ``` or ``` ... ```
+    sql = re.sub(r"^```(?:sql|postgresql)?\s*", "", sql, flags=re.IGNORECASE)
+    sql = re.sub(r"\s*```$", "", sql).strip()
+
+    try:
+        return sqlglot.transpile(
+            sql,
+            write="postgres",
+            identify=True,
+            pretty=True,
+        )[0]
+    except sqlglot.errors.ParseError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The language service returned invalid SQL.",
+        ) from exc
+
+def input_guardrails(prompt: str) -> None:
+    if profanity.contains_profanity(prompt):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prompt contains undesirable content",
+        )
 
 def prompt_guardrails():
     guardrails = {

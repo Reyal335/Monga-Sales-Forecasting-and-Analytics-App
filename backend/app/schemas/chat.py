@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class ChatTestRequest(BaseModel):
     prompt: str = Field(description="The user's analytics question.")
-
+    document_id: str | None = Field(description="The user's attached document.")  
     @field_validator("prompt")
     @classmethod
     def validate_prompt(cls, value: str) -> str:

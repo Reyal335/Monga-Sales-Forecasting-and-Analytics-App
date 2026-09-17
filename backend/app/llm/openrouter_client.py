@@ -1,11 +1,16 @@
 import httpx
-from app.core.config import settings
+from ..core.config import settings
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LLMUpstreamError(Exception):
     """Raised when the configured LLM provider cannot produce a response."""
 
 async def get_llm_test_response(prompt: str) -> str:
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise LLMUpstreamError("The generated prompt is empty.")
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
@@ -16,8 +21,19 @@ async def get_llm_test_response(prompt: str) -> str:
                     "messages": [{"role": "user", "content": prompt}],
                 },
             )
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
+
+            if response.is_error:
+                logger.error(
+                    "OpenRouter returned %s : %s",
+                    response.status_code,
+                    response.text[:1000]
+                )
+                raise LLMUpstreamError(
+                    f"OpenRouter returned HTTP {response.status_code}"
+                )
+
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
     except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
         raise LLMUpstreamError("The language service is unavailable. Please try again.") from exc
 

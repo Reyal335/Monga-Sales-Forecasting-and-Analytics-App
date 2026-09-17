@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     OPENROUTER_API_KEY: str
-    LLM_MODEL: str = "deepseek/deepseek-v4-flash-0731"
+    LLM_MODEL: str = "anthropic/claude-haiku-4.5"
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
     class Config:
