@@ -5,7 +5,7 @@ WITH item_data AS (
 	    m.category,
 	    m.unit_price,
 	    SUM(i.cost_per_unit * b.quantity_required) AS total_recipe_cost,
-		(m.unit_price - SUM(i.cost_per_uanit * b.quantity_required)) AS contribution_margin
+		(m.unit_price - SUM(i.cost_per_unit * b.quantity_required)) AS contribution_margin
 	FROM menu_items m
 	INNER JOIN bill_of_materials b
 	    ON b.item_id = m.item_id
